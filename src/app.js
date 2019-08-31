@@ -4,6 +4,7 @@ const logger = require('morgan');
 const locationsRouter = require('./locationsRouter');
 
 const app = express();
+app.disable('x-powered-by');
 
 app.use(logger('dev'));
 app.use(express.json());
