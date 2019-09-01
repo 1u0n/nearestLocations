@@ -1,6 +1,7 @@
 const express = require('express');
 const LRUCache = require('mnemonist/lru-cache');
 const got = require('got');
+const nearestNeighbors = require('./geoUtil/nearestNeighbors');
 const router = express.Router();
 
 const API_KEY = process.env.API_KEY;
@@ -27,8 +28,6 @@ router.post('/', async (req, res, next) => {
         allCoordinates.push({ loc: location, lon: locationCoordinates.lon, lat: locationCoordinates.lat });
       }
     }
-
-    console.log(`${allCoordinates.length} from cache, need to geocode ${needGeocoding.length}`);
 
     if (needGeocoding.length) {
       let geoApiResponse;
@@ -66,7 +65,8 @@ router.post('/', async (req, res, next) => {
       }
     }
 
-    res.json(allCoordinates);
+    nearestNeighbors.useGeoBucketing(allCoordinates);
+    res.json(allCoordinates.map(o => ({ location: o.loc, nearest: o.nearest })));
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: errorMessage });

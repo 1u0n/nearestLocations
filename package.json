@@ -3,15 +3,17 @@
   "version": "0.0.1",
   "scripts": {
     "start": "node ./src/httpServer",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "tape test/**/test-*.js"
   },
   "devDependencies": {
     "eslint": "^6.3.0",
-    "chai": "^4.2.0",
-    "semistandard": "^14.0.0"
+    "semistandard": "^14.0.0",
+    "tape": "^4.11.0"
   },
   "dependencies": {
     "express": "~4.17.1",
+    "geolib": "^3.0.4",
     "got": "^9.6.0",
     "mnemonist": "^0.30.0",
     "morgan": "~1.9.1"
