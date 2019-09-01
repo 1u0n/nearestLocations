@@ -1,7 +1,8 @@
 const express = require('express');
 const LRUCache = require('mnemonist/lru-cache');
 const got = require('got');
-const nearestNeighbors = require('./geoUtil/nearestNeighbors');
+const workers = require('./workers');
+
 const router = express.Router();
 
 const API_KEY = process.env.API_KEY;
@@ -13,7 +14,25 @@ const cache = LRUCache.from({
   'Hyderabad, Telangana, India': { lon: 78.46081, lat: 17.388607 }
 }, 2000);
 
-router.post('/', async (req, res, next) => {
+// Map to store responses until a worker answers with the solution
+const responseMap = new Map();
+let responseId = 0;
+setInterval(() => {
+  responseId = 0;
+}, 300000);
+
+function handleWorkerResponse (message) {
+  const expressRes = responseMap.get(message.resId);
+  if (expressRes) {
+    responseMap.delete(message.resId);
+    expressRes.set('Algorithm', message.alg);
+    expressRes.json(message.locations.map(o => ({ location: o.loc, nearest: o.nearest })));
+  }
+}
+workers.naive.on('message', handleWorkerResponse);
+workers.bucketing.on('message', handleWorkerResponse);
+
+router.post('/:algorithm?', async (req, res, next) => {
   try {
     if (!req.body || !req.body.length || req.body.length > 100) {
       return res.status(400).json({ error: 'Wrong request body' });
@@ -65,8 +84,17 @@ router.post('/', async (req, res, next) => {
       }
     }
 
-    nearestNeighbors.useGeoBucketing(allCoordinates);
-    res.json(allCoordinates.map(o => ({ location: o.loc, nearest: o.nearest })));
+    responseId++;
+    responseMap.set(responseId, res);
+    // process in worker using requested algorithm, or make the 2 algorithms compete if none requested
+    if (req.params.algorithm === 'NAIVE') {
+      workers.naive.postMessage({ resId: responseId, locations: allCoordinates });
+    } else if (req.params.algorithm === 'BUCKETING') {
+      workers.bucketing.postMessage({ resId: responseId, locations: allCoordinates });
+    } else {
+      workers.naive.postMessage({ resId: responseId, locations: allCoordinates });
+      workers.bucketing.postMessage({ resId: responseId, locations: allCoordinates });
+    }
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: errorMessage });

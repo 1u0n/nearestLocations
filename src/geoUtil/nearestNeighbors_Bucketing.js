@@ -1,3 +1,4 @@
+const { parentPort, isMainThread } = require('worker_threads');
 const geolib = require('geolib');
 const BucketedWorld = require('./bucketedWorld');
 
@@ -43,6 +44,13 @@ function useGeoBucketing (locations) {
     }
     points = world.nextAreaWithPoints();
   }
+}
+
+if (!isMainThread) {
+  parentPort.on('message', (message) => {
+    useGeoBucketing(message.locations);
+    parentPort.postMessage({ resId: message.resId, locations: message.locations, alg: 'GEOBUCKETING' });
+  });
 }
 
 module.exports = { useGeoBucketing };
